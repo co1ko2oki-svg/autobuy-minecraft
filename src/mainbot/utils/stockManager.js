@@ -1,7 +1,7 @@
 const { ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
 const { insertAccount, generateId } = require('../database/db');
 const config = require('../config/config');
-const { buildStockEmbed } = require('../embeds/embedBuilder');
+const buildStockEmbed = require('../embeds/stockEmbed');
 const { generatePlayerCard } = require('../../card/engine/pool');
 const { sendStockLog } = require('../../card/webhookLog');
 
@@ -14,10 +14,8 @@ async function processStockAccounts(accounts, guild, authorUser) {
     for (const catId of config.stockCategoryIds) {
         let category = guild.channels.cache.get(catId) || guild.client.channels.cache.get(catId);
         if (!category) {
-            try {
-                category = await guild.channels.fetch(catId).catch(() => null);
-                if (!category) category = await guild.client.channels.fetch(catId).catch(() => null);
-            } catch (e) {}
+            category = await guild.channels.fetch(catId).catch(() => null)
+                || await guild.client.channels.fetch(catId).catch(() => null);
         }
         if (category && category.type === ChannelType.GuildCategory) {
             categories.push(category);

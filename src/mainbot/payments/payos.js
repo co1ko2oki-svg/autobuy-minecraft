@@ -70,6 +70,9 @@ async function checkPayOSTransaction(orderCode) {
         }
         return false;
     } catch (error) {
+        if (!error.message?.includes('404') && !error.message?.includes('not found')) {
+            console.error('[PayOS] Lỗi tra cứu giao dịch:', error.message);
+        }
         return false;
     }
 }
@@ -81,6 +84,7 @@ async function cancelPayOSPayment(orderCode, reason = 'Đơn hàng bị hủy') 
     try {
         return await payos.paymentRequests.cancel(Number(orderCode), reason);
     } catch (error) {
+        console.warn(`[PayOS] Không thể hủy payment request ${orderCode}:`, error.message);
         return null;
     }
 }

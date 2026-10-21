@@ -1,12 +1,14 @@
 const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder } = require('./embedBuilder');
+const { ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder } = require('./components');
 const config = require('../config/config');
 
 function getHelpMenuAndButtons() {
     const selectMenuRow = new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
             .setCustomId('help_menu')
-            .setPlaceholder('<a:Party_Cat:1503443335858360520>  Chọn danh mục bạn cần hỗ trợ / xem lệnh...')
+            .setPlaceholder('<a:Party_Cat:1503443335858360520> Chọn danh mục bạn cần hỗ trợ / xem lệnh...')
+            .setMinValues(1)
+            .setMaxValues(1)
             .addOptions([
                 {
                     label: 'Hướng Dẫn Mua Hàng & Thanh Toán',

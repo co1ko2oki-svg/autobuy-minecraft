@@ -14,7 +14,7 @@ const {
     TextDisplayBuilder,
     SeparatorBuilder,
     ThumbnailBuilder
-} = require('../embeds/embedBuilder');
+} = require('../embeds/components');
 
 const DEFAULT_BANNER_ICON = 'https://cdn.discordapp.com/attachments/1494640480078794972/1525112628312277087/png.png?ex=6a523351&is=6a50e1d1&hm=4063ff7e3b35b22e944238bed050280ca33e84e32293f0451e99d55631d40784&';
 
@@ -207,7 +207,7 @@ async function handleBuyButton(interaction, accountId) {
         return interaction.editReply({ content: '❌ Tài khoản này đang có người khác giao dịch, vui lòng thử lại sau ít phút hoặc chọn tài khoản khác.' });
     }
 
-    updateStockPostStatus(interaction.client, account, 'pending').catch(() => {});
+    updateStockPostStatus(interaction.client, account, 'pending').catch(err => console.error('[StockStatus] Lỗi đặt pending:', err.message));
 
     const invoiceId = db.generateId();
     const priceStr = String(account.price || '0');
@@ -247,8 +247,8 @@ async function handleBuyButton(interaction, accountId) {
         });
     } catch (e) {
         console.error('[Ticket] Lỗi tạo kênh ticket:', e.message);
-        await db.unlockAccount(accountId, interaction.user.id).catch(() => {});
-        updateStockPostStatus(interaction.client, account, 'available').catch(() => {});
+        await db.unlockAccount(accountId, interaction.user.id).catch(err => console.error('[Invoice] Lỗi unlockAccount:', err.message));
+        updateStockPostStatus(interaction.client, account, 'available').catch(err => console.error('[StockStatus] Lỗi đặt available:', err.message));
         return interaction.editReply({ content: '❌ Không thể tạo kênh giao dịch.' });
     }
 
@@ -368,7 +368,6 @@ async function checkPaymentStatus(interaction, invoiceId) {
     
     let isPaid = false;
 
-    // 1. Kiểm tra qua cổng PayOS (nếu có mã orderCode)
     if (invoice.payos_order_code && isPayOSEnabled()) {
         try {
             isPaid = await checkPayOSTransaction(invoice.payos_order_code);
@@ -377,7 +376,6 @@ async function checkPaymentStatus(interaction, invoiceId) {
         }
     }
 
-    // 2. Nếu PayOS chưa thanh toán, kiểm tra biến động SePay
     if (!isPaid) {
         isPaid = await checkSePayTransaction(invoice.amount, invoice.content);
     }
@@ -400,9 +398,9 @@ async function processSuccessfulPayment(interaction, invoice, isAdmin = false) {
     const account = db.readDB().accounts.get(invoice.accountId);
     if (!account) {
         const msg = '❌ Tài khoản không còn tồn tại trong hệ thống.';
-        if (interaction.editReply) await interaction.editReply(msg).catch(() => {});
-        else if (interaction.reply) await interaction.reply(msg).catch(() => {});
-        else if (channel) await channel.send(msg).catch(() => {});
+        if (interaction.editReply) await interaction.editReply(msg).catch(err => console.warn('[Payment] Lỗi editReply missing account:', err.message));
+        else if (interaction.reply) await interaction.reply(msg).catch(err => console.warn('[Payment] Lỗi reply missing account:', err.message));
+        else if (channel) await channel.send(msg).catch(err => console.warn('[Payment] Lỗi send missing account:', err.message));
         return;
     }
 
@@ -410,7 +408,7 @@ async function processSuccessfulPayment(interaction, invoice, isAdmin = false) {
     account.soldTo = invoice.userId;
     account.soldAt = new Date().toISOString();
     db.updateAccount(account);
-    await db.unlockAccount(account._id, invoice.userId).catch(() => {});
+    await db.unlockAccount(account._id, invoice.userId).catch(err => console.error('[Invoice] Lỗi unlockAccount:', err.message));
 
     const userStats = await getOrUpdateUser(invoice.userId);
     userStats.totalSpent += invoice.amount;
@@ -437,14 +435,18 @@ async function processSuccessfulPayment(interaction, invoice, isAdmin = false) {
 
                 if (post.messageId) {
                     const stockMsg = await stockChannel.messages.fetch(post.messageId).catch(() => null);
-                    if (stockMsg) await stockMsg.delete().catch(() => {});
+                    if (stockMsg) {
+                        await stockMsg.delete().catch(err => {
+                            if (err.code !== 10008) console.warn('[Payment] Lỗi xóa stock message:', err.message);
+                        });
+                    }
                 }
                 const soldComponent = buildSoldEmbed(account, `<@${invoice.userId}>`, (config.adminIds && config.adminIds[0]) || '');
                 await stockChannel.send({
                     components: [soldComponent],
                     flags: 32768,
                     allowedMentions: { parse: [] }
-                }).catch(() => {});
+                }).catch(err => console.error(`[Payment] Lỗi gửi thông báo bán vào ${post.channelId}:`, err.message));
             } catch (postErr) {
                 console.error(`[Payment] Lỗi cập nhật bài đăng stock ${post.channelId}:`, postErr.message);
             }
@@ -486,7 +488,9 @@ async function processSuccessfulPayment(interaction, invoice, isAdmin = false) {
             if (logChannel) {
                 const buyerUser = await client.users.fetch(invoice.userId).catch(() => null);
                 const billComponent = buildLogBillEmbed(invoice, account, buyerUser, client, isAdmin, responderId);
-                await logChannel.send({ components: [billComponent], flags: 32768 }).catch(() => {});
+                await logChannel.send({ components: [billComponent], flags: 32768 }).catch(err => {
+                    console.error('[Payment] Lỗi gửi log bill vào kênh:', err.message);
+                });
             }
         }
     } catch (e) {
@@ -517,37 +521,40 @@ async function processSuccessfulPayment(interaction, invoice, isAdmin = false) {
 
     if (dmFailed) {
         if (channel) {
-            await channel.send({ content: `<@${invoice.userId}> ❌ Bot không thể gửi DM cho bạn. Vui lòng lưu lại file đính kèm dưới đây trước khi kênh bị xoá!` }).catch(() => {});
+            await channel.send({ content: `<@${invoice.userId}> ❌ Bot không thể gửi DM cho bạn. Vui lòng lưu lại file đính kèm dưới đây trước khi kênh bị xoá!` }).catch(err => console.warn('[Payment] Lỗi gửi DM fallback thông báo:', err.message));
             await channel.send({
                 components: [deliveryComponent],
                 flags: 32768,
                 files: [txtAttachment]
-            }).catch(() => {});
+            }).catch(err => console.error('[Payment] Lỗi gửi file delivery vào channel:', err.message));
         }
     } else if (channel) {
-        await channel.send({ content: successMsg }).catch(() => {});
+        await channel.send({ content: successMsg }).catch(err => console.warn('[Payment] Lỗi gửi successMsg vào channel:', err.message));
     }
 
     if (interaction.editReply) {
-        await interaction.editReply({ content: successMsg }).catch(() => {});
+        await interaction.editReply({ content: successMsg }).catch(err => console.warn('[Payment] Lỗi editReply successMsg:', err.message));
     } else if (interaction.reply) {
-        await interaction.reply({ content: successMsg }).catch(() => {});
+        await interaction.reply({ content: successMsg }).catch(err => console.warn('[Payment] Lỗi reply successMsg:', err.message));
     }
 
     if (channel) {
         if (dmFailed) {
-            await channel.send({ content: `⚠️ **Lưu ý:** Bot không gửi được DM cho bạn nên kênh này sẽ được giữ lại trong **10 phút** để bạn sao lưu thông tin tài khoản bên trên. Vui lòng tải file \`_info.txt\` về máy ngay!` }).catch(() => {});
+            await channel.send({ content: `⚠️ **Lưu ý:** Bot không gửi được DM cho bạn nên kênh này sẽ được giữ lại trong **10 phút** để bạn sao lưu thông tin tài khoản bên trên. Vui lòng tải file \`_info.txt\` về máy ngay!` }).catch(err => console.warn('[Payment] Lỗi gửi lưu ý sao lưu:', err.message));
             setTimeout(async () => {
                 try {
                     await channel.delete();
-                } catch (e) {}
+                } catch (e) {
+                    if (e.code !== 10003) console.warn('[Ticket] Lỗi xóa ticket sau fallback DM:', e.message);
+                }
             }, 10 * 60 * 1000);
         } else {
-            // Giữ kênh 5 phút để khách thực hiện vouch (hoặc tự đóng khi khách vouch tại kênh Legit)
             setTimeout(async () => {
                 try {
                     await channel.delete();
-                } catch (e) {}
+                } catch (e) {
+                    if (e.code !== 10003) console.warn('[Ticket] Lỗi xóa ticket sau thanh toán:', e.message);
+                }
             }, 5 * 60 * 1000);
         }
     }
@@ -565,9 +572,9 @@ async function cancelInvoice(interaction, invoiceId) {
 
     invoice.status = 'cancelled';
     if (invoice.payos_order_code && isPayOSEnabled()) {
-        cancelPayOSPayment(invoice.payos_order_code).catch(() => {});
+        cancelPayOSPayment(invoice.payos_order_code).catch(err => console.warn('[PayOS] Lỗi cancelPayOSPayment:', err.message));
     }
-    await db.unlockAccount(invoice.accountId, invoice.userId).catch(() => {});
+    await db.unlockAccount(invoice.accountId, invoice.userId).catch(err => console.error('[Invoice] Lỗi unlockAccount:', err.message));
     db.updateInvoice(invoice);
     const account = db.readDB().accounts.get(invoice.accountId);
     if (account) updateStockPostStatus(interaction.client, account, 'available');
@@ -577,7 +584,9 @@ async function cancelInvoice(interaction, invoiceId) {
     setTimeout(async () => {
         try {
             await interaction.channel.delete();
-        } catch (e) {}
+        } catch (e) {
+            if (e.code !== 10003) console.warn('[Ticket] Lỗi xóa ticket sau khi hủy:', e.message);
+        }
     }, 3000);
 }
 
@@ -615,7 +624,7 @@ async function recoverOrphanedAccounts(client) {
         for (const inv of invoices) {
             if (new Date(inv.expiresAt) < new Date()) {
                 inv.status = 'cancelled';
-                await db.unlockAccount(inv.accountId, inv.userId).catch(() => {});
+                await db.unlockAccount(inv.accountId, inv.userId).catch(err => console.error('[Invoice] Lỗi unlockAccount:', err.message));
                 db.updateInvoice(inv);
                 const acc = db.readDB().accounts.get(inv.accountId);
                 if (acc) updateStockPostStatus(client, acc, 'available');
@@ -632,14 +641,13 @@ async function startPaymentCheckLoop(client) {
             const now = new Date();
             const allInvoices = Array.from(db.readDB().invoices.values());
 
-            // 1. Quét và dọn dẹp các hóa đơn đã hết hạn
             for (const inv of allInvoices) {
                 if ((inv.status === 'pending' || inv.status === 'card_pending') && new Date(inv.expiresAt) < now) {
                     inv.status = 'cancelled';
                     if (inv.payos_order_code && isPayOSEnabled()) {
-                        cancelPayOSPayment(inv.payos_order_code).catch(() => {});
+                        cancelPayOSPayment(inv.payos_order_code).catch(err => console.warn('[PayOS] Lỗi cancelPayOSPayment:', err.message));
                     }
-                    await db.unlockAccount(inv.accountId, inv.userId).catch(() => {});
+                    await db.unlockAccount(inv.accountId, inv.userId).catch(err => console.error('[Invoice] Lỗi unlockAccount:', err.message));
                     db.updateInvoice(inv);
                     const acc = db.readDB().accounts.get(inv.accountId);
                     if (acc) updateStockPostStatus(client, acc, 'available');
@@ -647,28 +655,30 @@ async function startPaymentCheckLoop(client) {
                     const channel = client.channels.cache.get(inv.channelId)
                         || await client.channels.fetch(inv.channelId).catch(() => null);
                     if (channel) {
-                        await channel.send('⏳ Hóa đơn đã hết thời hạn chờ thanh toán (10 phút). Kênh sẽ tự động đóng sau 10 giây.').catch(() => {});
+                        await channel.send('⏳ Hóa đơn đã hết thời hạn chờ thanh toán (10 phút). Kênh sẽ tự động đóng sau 10 giây.').catch(err => console.warn('[Invoice] Lỗi gửi thông báo hết hạn:', err.message));
                         setTimeout(async () => {
                             try {
                                 await channel.delete();
-                            } catch (e) {}
+                            } catch (e) {
+                                if (e.code !== 10003) console.warn('[Invoice] Lỗi xóa ticket hết hạn:', e.message);
+                            }
                         }, 10000);
                     }
                 }
             }
 
-            // 2. Tự động kiểm tra cho các hóa đơn pending còn hạn (PayOS + SePay song song)
             const pendingBankInvoices = allInvoices.filter(i => i.status === 'pending' && new Date(i.expiresAt) >= now);
             if (pendingBankInvoices.length > 0) {
                 let sepayTransactions = null;
                 try {
                     sepayTransactions = await getSePayTransactions();
-                } catch (e) {}
+                } catch (e) {
+                    console.error('[PaymentLoop] Lỗi tải giao dịch SePay:', e.message);
+                }
 
                 for (const inv of pendingBankInvoices) {
                     let isPaid = false;
 
-                    // 2a. Kiểm tra PayOS
                     if (inv.payos_order_code && isPayOSEnabled()) {
                         try {
                             isPaid = await checkPayOSTransaction(inv.payos_order_code);
@@ -677,7 +687,6 @@ async function startPaymentCheckLoop(client) {
                         }
                     }
 
-                    // 2b. Kiểm tra SePay nếu PayOS chưa ghi nhận
                     if (!isPaid && sepayTransactions && sepayTransactions.length > 0) {
                         isPaid = await checkSePayTransaction(inv.amount, inv.content, sepayTransactions);
                     }
@@ -691,7 +700,6 @@ async function startPaymentCheckLoop(client) {
                 }
             }
 
-            // 3. Tự động kiểm tra thẻ cào (card_pending)
             const pendingCardInvoices = allInvoices.filter(i => i.status === 'card_pending' && new Date(i.expiresAt) >= now);
             for (const inv of pendingCardInvoices) {
                 const res = await checkCardStatus(inv.card_request_id);
@@ -707,7 +715,7 @@ async function startPaymentCheckLoop(client) {
                     await processSuccessfulPayment(context, inv, false);
                 } else if (res.status === 'failed') {
                     inv.status = 'cancelled';
-                    await db.unlockAccount(inv.accountId, inv.userId).catch(() => {});
+                    await db.unlockAccount(inv.accountId, inv.userId).catch(err => console.error('[Invoice] Lỗi unlockAccount:', err.message));
                     db.updateInvoice(inv);
                     const acc = db.readDB().accounts.get(inv.accountId);
                     if (acc) updateStockPostStatus(client, acc, 'available');
@@ -715,11 +723,13 @@ async function startPaymentCheckLoop(client) {
                     const channel = client.channels.cache.get(inv.channelId)
                         || await client.channels.fetch(inv.channelId).catch(() => null);
                     if (channel) {
-                        await channel.send('❌ Thẻ nạp đã bị từ chối hoặc sai mệnh giá. Hóa đơn đã bị huỷ. Kênh sẽ tự động đóng sau 10 giây.').catch(() => {});
+                        await channel.send('❌ Thẻ nạp đã bị từ chối hoặc sai mệnh giá. Hóa đơn đã bị huỷ. Kênh sẽ tự động đóng sau 10 giây.').catch(err => console.warn('[Invoice] Lỗi gửi thông báo hủy thẻ:', err.message));
                         setTimeout(async () => {
                             try {
                                 await channel.delete();
-                            } catch (e) {}
+                            } catch (e) {
+                                if (e.code !== 10003) console.warn('[Invoice] Lỗi xóa ticket thẻ hủy:', e.message);
+                            }
                         }, 10000);
                     }
                 }

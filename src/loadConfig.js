@@ -1,10 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
-// 1. Nạp biến môi trường từ .env
 require('dotenv').config();
 
-// 2. Nạp cấu hình từ config.json (hỗ trợ đồng bộ hai chiều)
 const configPath = path.join(__dirname, '..', 'config.json');
 if (fs.existsSync(configPath)) {
     try {
@@ -12,7 +10,6 @@ if (fs.existsSync(configPath)) {
         for (const [key, value] of Object.entries(json)) {
             if (value === null || value === undefined) continue;
             const strVal = Array.isArray(value) ? value.join(',') : String(value).trim();
-            // Chỉ ghi đè nếu config.json có giá trị thực hoặc env chưa có
             if (strVal !== '' || !process.env[key]) {
                 process.env[key] = strVal;
             }
@@ -22,7 +19,6 @@ if (fs.existsSync(configPath)) {
     }
 }
 
-// 3. Hàm kiểm tra và in thông tin setup trực quan
 function printSetupReport() {
     const mask = (str, len = 6) => (!str ? 'Chưa cấu hình' : (str.length > len ? str.slice(0, len) + '...' : str));
     const status = (val) => (val && String(val).trim() !== '' ? '✅' : '❌');

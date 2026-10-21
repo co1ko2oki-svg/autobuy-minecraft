@@ -33,36 +33,7 @@ function all(sql, params = []) {
     });
 }
 
-function getCryptoKey() {
-    const secret = process.env.CRYPTO_SECRET || 'autobuy-default-secret';
-    return crypto.createHash('sha256').update(secret).digest();
-}
 
-function encryptValue(str) {
-    if (str === null || str === undefined || str === '') return str;
-    if (typeof str !== 'string') str = String(str);
-    if (str.startsWith('enc:')) return str;
-    const iv = crypto.randomBytes(12);
-    const cipher = crypto.createCipheriv('aes-256-gcm', getCryptoKey(), iv);
-    const enc = Buffer.concat([cipher.update(str, 'utf8'), cipher.final()]);
-    const tag = cipher.getAuthTag();
-    return 'enc:' + Buffer.concat([iv, tag, enc]).toString('base64');
-}
-
-function decryptValue(str) {
-    if (typeof str !== 'string' || !str.startsWith('enc:')) return str;
-    try {
-        const data = Buffer.from(str.slice(4), 'base64');
-        const iv = data.subarray(0, 12);
-        const tag = data.subarray(12, 28);
-        const enc = data.subarray(28);
-        const decipher = crypto.createDecipheriv('aes-256-gcm', getCryptoKey(), iv);
-        decipher.setAuthTag(tag);
-        return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
-    } catch (e) {
-        return str;
-    }
-}
 
 db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS accounts (

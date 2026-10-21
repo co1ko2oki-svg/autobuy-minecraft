@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags, ChannelType } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const config = require('../config/config');
@@ -40,6 +40,20 @@ module.exports = {
 
         const type = interaction.options.getString('type');
         const target = interaction.options.getChannel('target');
+
+        const isCategory = type === 'TICKET_CATEGORY_ID' || type === 'STOCK_CATEGORY_ID';
+        if (isCategory && target.type !== ChannelType.GuildCategory) {
+            return interaction.reply({
+                content: `❌ Lỗi: \`${type}\` phải là một Danh Mục (Category), không thể chọn kênh thông thường!`,
+                flags: MessageFlags.Ephemeral
+            });
+        }
+        if (!isCategory && target.type === ChannelType.GuildCategory) {
+            return interaction.reply({
+                content: `❌ Lỗi: \`${type}\` phải là một Kênh văn bản, không thể chọn Danh mục!`,
+                flags: MessageFlags.Ephemeral
+            });
+        }
 
         let cfg = {};
         if (fs.existsSync(CONFIG_PATH)) {

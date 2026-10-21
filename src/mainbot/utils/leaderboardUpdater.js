@@ -42,16 +42,20 @@ async function updateLeaderboard(client) {
             try {
                 await targetMessage.edit({ flags: 32768, components: [embed], embeds: [], content: '' });
             } catch (err) {
-                console.log('[Leaderboard] Không thể sửa tin nhắn cũ, sẽ thử gửi tin nhắn mới (Lỗi: ' + err.message + ')');
-                await targetMessage.delete().catch(() => {});
+                console.warn('[Leaderboard] Không thể sửa tin nhắn cũ, sẽ gửi tin nhắn mới:', err.message);
+                await targetMessage.delete().catch(delErr => {
+                    if (delErr.code !== 10008) console.warn('[Leaderboard] Lỗi xóa targetMessage cũ:', delErr.message);
+                });
                 await channel.send({ flags: 32768, components: [embed] });
             }
 
             if (botMessages.size > 1) {
                 const extras = botMessages.clone();
                 extras.delete(targetMessage.id);
-                for (const [id, msg] of extras) {
-                    await msg.delete().catch(() => { });
+                for (const [, msg] of extras) {
+                    await msg.delete().catch(extraErr => {
+                        if (extraErr.code !== 10008) console.warn('[Leaderboard] Lỗi xóa extra message:', extraErr.message);
+                    });
                 }
             }
         } else {

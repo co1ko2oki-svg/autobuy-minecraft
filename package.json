@@ -1,0 +1,28 @@
+{
+  "name": "autobuy-bot-thapcamsotre",
+  "version": "1.0.0",
+  "description": "Discord Bot AutoBuy Minecraft",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "pm2": "pm2 start index.js --name autobuy-bot --time",
+    "stop": "pm2 stop autobuy-bot",
+    "restart": "pm2 restart autobuy-bot",
+    "logs": "pm2 logs autobuy-bot"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@payos/node": "^2.0.5",
+    "axios": "^1.18.0",
+    "canvas": "^3.2.3",
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.4.5",
+    "gif-encoder-2": "^1.0.5",
+    "gif-frames": "^1.0.1",
+    "puppeteer": "^24.43.1",
+    "skinview3d": "^3.4.2",
+    "sqlite3": "^5.1.7"
+  }
+}

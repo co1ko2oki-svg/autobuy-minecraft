@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Technoblade | Premium Account</title>
+    <meta name="description" content="Premium Minecraft Account details and cosmetics showcase.">
+    
+    <!-- Premium Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Ambient Background Layer -->
+    <canvas id="ambient-canvas"></canvas>
+    <div class="ambient-fog"></div>
+    <div class="vignette"></div>
+
+    <main class="layout">
+        <!-- 3D Hero Section -->
+        <section class="hero-section">
+            <div class="identity">
+                <div class="badges">
+                    <span class="badge premium">MVP+ Rank</span>
+                    <span class="badge verified">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                        Verified
+                    </span>
+                </div>
+                <h1 class="username">
+                    <span class="text-wrapper" data-text="Technoblade">Technoblade</span>
+                    <div class="underline"></div>
+                </h1>
+                <p class="subtitle">Minecraft Java Edition &middot; Full Access</p>
+            </div>
+
+            <!-- The Skin Viewer container -->
+            <div class="character-container" id="character-container">
+                <canvas id="skin-viewer"></canvas>
+                <div class="platform">
+                    <div class="platform-ring"></div>
+                    <div class="platform-glow"></div>
+                </div>
+                <div class="shadow"></div>
+            </div>
+        </section>
+
+        <!-- Information & Actions Section -->
+        <section class="details-section">
+            <!-- Luxury Pricing -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon-wrapper">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-label">Bank Value</span>
+                        <span class="stat-value">500,000<span class="currency">₫</span></span>
+                    </div>
+                    <div class="card-border"></div>
+                    <div class="card-glow"></div>
+                </div>
+                
+                <div class="stat-card accent">
+                    <div class="stat-icon-wrapper">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-label">Card Price</span>
+                        <span class="stat-value highlight">720,000<span class="currency">₫</span></span>
+                    </div>
+                    <div class="card-border"></div>
+                    <div class="card-glow"></div>
+                </div>
+            </div>
+
+            <!-- Premium Cape Gallery -->
+            <div class="collection-area">
+                <div class="section-header">
+                    <h2 class="section-title">Cosmetics Collection</h2>
+                    <span class="count-badge">18 Items</span>
+                </div>
+                <div class="gallery-scroll">
+                    <div class="cape-gallery" id="cape-gallery">
+                        <!-- Populated dynamically via JS -->
+                    </div>
+                </div>
+                <div class="scroll-fade"></div>
+            </div>
+
+            <!-- High-End Purchase Area -->
+            <div class="action-area">
+                <button class="btn-purchase magnetic" data-magnetic>
+                    <div class="btn-content">
+                        <span class="btn-text">Acquire Account</span>
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </div>
+                    <div class="btn-bg"></div>
+                    <div class="btn-glow"></div>
+                    <div class="btn-border"></div>
+                </button>
+                <div class="security-badge">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    <span>Secured by Thập Cẩm Store</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Dependencies -->
+    <script src="https://unpkg.com/three@0.149.0/build/three.js"></script>
+    <script src="https://unpkg.com/skinview3d@3.4.2/bundles/skinview3d.bundle.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
